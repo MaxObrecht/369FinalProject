@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="sbt: org.apache.derby:derby:10.12.1.1:jar" type="java-imported" external-system-id="SBT">
+    <properties groupId="org.apache.derby" artifactId="derby" version="10.12.1.1" baseVersion="10.12.1.1" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/derby/derby/10.12.1.1/derby-10.12.1.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

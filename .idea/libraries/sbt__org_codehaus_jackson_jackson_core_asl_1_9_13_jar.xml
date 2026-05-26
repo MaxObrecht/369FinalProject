@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="sbt: org.codehaus.jackson:jackson-core-asl:1.9.13:jar" type="java-imported" external-system-id="SBT">
+    <properties groupId="org.codehaus.jackson" artifactId="jackson-core-asl" version="1.9.13" baseVersion="1.9.13" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/codehaus/jackson/jackson-core-asl/1.9.13/jackson-core-asl-1.9.13.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/codehaus/jackson/jackson-core-asl/1.9.13/jackson-core-asl-1.9.13-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

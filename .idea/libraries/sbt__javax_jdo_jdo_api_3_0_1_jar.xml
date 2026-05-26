@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="sbt: javax.jdo:jdo-api:3.0.1:jar" type="java-imported" external-system-id="SBT">
+    <properties groupId="javax.jdo" artifactId="jdo-api" version="3.0.1" baseVersion="3.0.1" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/javax/jdo/jdo-api/3.0.1/jdo-api-3.0.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/javax/jdo/jdo-api/3.0.1/jdo-api-3.0.1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
