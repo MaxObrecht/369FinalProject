@@ -24,35 +24,36 @@ object Main {
   }
 
   def normalizeMedical() = {
+    val genderCategories = Array("Male", "Female")
+    val smokerCategories = Array("Yes", "No")
+    val regionCategories = Array("Northwest", "Southwest", "Northeast", "Southeast", "Central")
+    val exerciseCategories = Array("Moderate", "Low", "High")
+
     val data = datasetRDD()
     //drops id and annual medical cost
     val drop = data.map(row => row.slice(1, 15))
 
-    val age = zScore(drop.map(row => row(0).toDouble))
-    //shouldn't z, needs "one-hot-encode"
-    val gender = drop.map(row => row(1))
-    val bmi = zScore(drop.map(row => row(2).toDouble))
-    val children = zScore(drop.map(row => row(3).toDouble))
-    //not z
-    val smoker = drop.map(row => row(4))
-    //not z
-    val region = drop.map(row => row(5))
-    //not z
-    val occupation = drop.map(row => row(6))
-    val annualInc = zScore(drop.map(row => row(7).toDouble))
-    //not z
-    val exLvl = drop.map(row => row(8))
-    val chronDis = zScore(drop.map(row => row(9).toDouble))
-    val doctVis = zScore(drop.map(row => row(10).toDouble))
-    val hospVis = zScore(drop.map(row => row(11).toDouble))
-    val alcCons = zScore(drop.map(row => row(12).toDouble))
+    val age = zScore(drop.map(row => row(0).toDouble)) //a
+    val gender = drop.map(row => oneHot(row(1), genderCategories)) //b
+    val bmi = zScore(drop.map(row => row(2).toDouble)) //c
+    val children = zScore(drop.map(row => row(3).toDouble)) //d
+    val smoker = drop.map(row => oneHot(row(4), smokerCategories)) //e
+    val region = drop.map(row => oneHot(row(5), regionCategories)) //f
+    //not z REMOVE
+    //val occupation = drop.map(row => row(6))
+    val annualInc = zScore(drop.map(row => row(7).toDouble)) //g
+    val exLvl = drop.map(row => oneHot(row(8), exerciseCategories)) //h
+    val chronDis = zScore(drop.map(row => row(9).toDouble)) //i
+    val doctVis = zScore(drop.map(row => row(10).toDouble)) //j
+    val hospVis = zScore(drop.map(row => row(11).toDouble)) //k
+    val alcCons = zScore(drop.map(row => row(12).toDouble)) //l
 
     val result = age.zip(gender).zip(bmi).zip(children).zip(smoker)
-      .zip(region).zip(occupation).zip(annualInc).zip(exLvl)
+      .zip(region).zip(annualInc).zip(exLvl)
       .zip(chronDis).zip(doctVis).zip(hospVis).zip(alcCons)
 
-    result.map({ case ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m) =>
-      (a, b, c, d, e, f, g, h, i, j , k, l, m) })
+    result.map({ case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) =>
+      Array(a) ++ b ++ Array(c, d) ++ e ++ f ++ Array( g ) ++ h ++ Array( i, j , k, l) })
   }
 
   def mean(data: RDD[Double]): Double = {
@@ -74,9 +75,14 @@ object Main {
     data.map(n => (n - avg) / compStd)
   }
 
+  def oneHot(value: String, categories: Array[String]): Array[Double] = {
+    categories.map(category =>
+    if(value == category) 1.0 else 0.0)
+  }
+
   def main(args: Array[String]): Unit = {
     val result = normalizeMedical()
-    result.foreach(println)
+    result.foreach(row => println(row.mkString(",")))
 
 
   }
