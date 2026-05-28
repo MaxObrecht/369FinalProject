@@ -86,10 +86,30 @@ object Main {
     math.sqrt(a.zip(b).map{case (x, y) => math.pow(x - y, 2)}.sum)
   }
 
+  def closestCentroid(a: Array[Double], b: Array[Array[Double]]): (Int, Array[Double]) = {
+    //tuple w/ index of centroid and distance
+    var closest = (-1, 10000.0)
+
+    for(i <- b.indices) {
+      val dist = distance(a, b(i))
+      if(closest._2 > dist){
+        closest = (i, dist)
+      }
+    }
+    (closest._1, a)
+  }
+
+
+
   def main(args: Array[String]): Unit = {
     val result = normalizeMedical()
     val centroids = result.takeSample(false, k, seed)
-    result.foreach(row => println(row.mkString(",")))
+    //result.foreach(row => println(row.mkString(",")))
+
+    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
+    withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+
+    withCentroids.groupByKey().collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
 
   }
 }
