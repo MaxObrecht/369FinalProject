@@ -7,6 +7,8 @@ import org.apache.log4j.Level
 import scala.collection._
 
 object Main {
+  val k = 5
+  val seed = 67
   def datasetRDD(): RDD[Array[String]] = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
@@ -80,10 +82,14 @@ object Main {
     if(value == category) 1.0 else 0.0)
   }
 
+  def distance(a: Array[Double], b: Array[Double]): Double = {
+    math.sqrt(a.zip(b).map{case (x, y) => math.pow(x - y, 2)}.sum)
+  }
+
   def main(args: Array[String]): Unit = {
     val result = normalizeMedical()
+    val centroids = result.takeSample(false, k, seed)
     result.foreach(row => println(row.mkString(",")))
-
 
   }
 }
