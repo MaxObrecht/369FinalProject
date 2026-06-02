@@ -29,7 +29,7 @@ object Main {
   def normalizeMedical(): RDD[Array[Double]] = {
     val genderCategories = Array("Male", "Female")
     val smokerCategories = Array("Yes", "No")
-    val regionCategories = Array("Northwest", "Southwest", "Northeast", "Southeast", "Central")
+    //val regionCategories = Array("Northwest", "Southwest", "Northeast", "Southeast", "Central")
     val exerciseCategories = Array("Moderate", "Low", "High")
 
     val data = normalRDD()
@@ -41,7 +41,7 @@ object Main {
     val bmi = zScore(drop.map(row => row(2).toDouble)) //c
     val children = zScore(drop.map(row => row(3).toDouble)) //d
     val smoker = drop.map(row => oneHot(row(4), smokerCategories)) //e
-    val region = drop.map(row => oneHot(row(5), regionCategories)) //f
+    //val region = drop.map(row => oneHot(row(5), regionCategories)) //f
     //not z REMOVE
     //val occupation = drop.map(row => row(6))
     val annualInc = zScore(drop.map(row => row(7).toDouble)) //g
@@ -51,12 +51,11 @@ object Main {
     val hospVis = zScore(drop.map(row => row(11).toDouble)) //k
     val alcCons = zScore(drop.map(row => row(12).toDouble)) //l
 
-    val result = age.zip(gender).zip(bmi).zip(children).zip(smoker)
-      .zip(region).zip(annualInc).zip(exLvl)
+    val result = age.zip(gender).zip(bmi).zip(children).zip(smoker).zip(annualInc).zip(exLvl)
       .zip(chronDis).zip(doctVis).zip(hospVis).zip(alcCons)
 
-    result.map({ case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) =>
-      Array(a) ++ b ++ Array(c, d) ++ e ++ f ++ Array(g) ++ h ++ Array(i, j, k, l)
+    result.map({ case ((((((((((a, b), c), d), f), g), h), i), j), k), l) =>
+      Array(a) ++ b ++ Array(c, d)  ++ f ++ Array(g) ++ h ++ Array(i, j, k, l)
     })
   }
 
@@ -125,7 +124,6 @@ object Main {
       .mapValues { case (sum, count) => sum / count }
   }
 
-
   def nearestClusterDist(a: RDD[(Long, Int, Array[Double])]): RDD[(Long, Double)] = {
     val pairs = a.cartesian(a).filter { case ((id1, q1, v1), (id2, q2, v2)) =>
       id1 != id2 && q1 != q2
@@ -145,24 +143,54 @@ object Main {
           (id1, avgDist)
       }
       .reduceByKey(math.min)
-
   }
 
   def silhouetteScore(intra: Double, near: Double): Double = {
     (near - intra) / Math.max(intra, near)
   }
 
+  def getK(): Unit = {
+    val result = normalizeMedical()
 
+//    val K = List(5,10,15,20,30,40,50,75,100,150,200)
+val K = List(5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+
+    for(i <- 0 to K.length-1) {
+      val centroids = result.takeSample(false, K(i), seed)
+
+      val withCentroids = result.map(closestCentroid(_, centroids)).persist()
+      val indexed = addIds(withCentroids).persist()
+      val silhouetteScores = intraClusterDist(indexed).join(nearestClusterDist(indexed))
+        .map {case (id, (intra, nearest)) =>
+          silhouetteScore(intra, nearest)}
+      val finalSillScore = silhouetteScores.sum() / silhouetteScores.count()
+      println(K(i) + "    " + finalSillScore)
+    }
+  }
 
   def main(args: Array[String]): Unit = {
-    val result = normalizeMedical()
-    val centroids = result.takeSample(false, k, seed)
-    //result.foreach(row => println(row.mkString(",")))
+//    val result = normalizeMedical()
+//    val centroids = result.takeSample(false, k, seed)
+//    //result.foreach(row => println(row.mkString(",")))
+//
+//    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
+//    //withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+//
+//    // Silhouette Score code
+//    val indexed = addIds(withCentroids).persist()
+//
+//    val silhouetteScores = intraClusterDist(indexed).join(nearestClusterDist(indexed))
+//      .map {case (id, (intra, nearest)) =>
+//      silhouetteScore(intra, nearest)}
+//
+//    val finalSillScore = silhouetteScores.sum() / silhouetteScores.count()
+//    //
+//
+//    println(finalSillScore)
 
-    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
-    withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+    //withCentroids.groupByKey().collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
 
-    withCentroids.groupByKey().collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+    getK()
 
   }
 }
