@@ -158,7 +158,7 @@ object Main {
     val result = normalizeMedical()
 
 //    val K = List(5,10,15,20,30,40,50,75,100,150,200)
-val K = List(5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+val K = (1 to 100).toList
 
     for(i <- 0 to K.length-1) {
       val centroids = result.takeSample(false, K(i), seed)
@@ -170,6 +170,20 @@ val K = List(5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
       val finalSillScore = silhouetteScores.sum() / silhouetteScores.count()
       println(K(i) + "    " + finalSillScore)
     }
+  }
+
+  def kMeans(): Unit = {
+    //initialize
+    val result = normalizeMedical()
+    var centroids = result.takeSample(false, k, seed)
+
+    //loop
+    //assign to closest centroids
+    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
+
+    //recompute centroids
+    //take average of each centroid, that becomes new centroid
+    //centroids = ...
   }
 
   def main(args: Array[String]): Unit = {
