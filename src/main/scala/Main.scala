@@ -34,29 +34,39 @@ object Main {
 
     val data = normalRDD()
     //drops id and annual medical cost
-    val drop = data.map(row => row.slice(1, 15))
+    //val drop = data.map(row => row.slice(1, 15))
 
-    val age = zScore(drop.map(row => row(0).toDouble)) //a
-    val gender = drop.map(row => oneHot(row(1), genderCategories)) //b
-    val bmi = zScore(drop.map(row => row(2).toDouble)) //c
-    val children = zScore(drop.map(row => row(3).toDouble)) //d
-    val smoker = drop.map(row => oneHot(row(4), smokerCategories)) //e
+    val id = data.map(row => row(0).drop(3).toDouble)
+    val age = zScore(data.map(row => row(1).toDouble)) //a
+    val gender = data.map(row => oneHot(row(2), genderCategories)) //b
+    val bmi = zScore(data.map(row => row(3).toDouble)) //c
+    val children = zScore(data.map(row => row(4).toDouble)) //d
+    val smoker = data.map(row => oneHot(row(5), smokerCategories)) //e
     //val region = drop.map(row => oneHot(row(5), regionCategories)) //f
     //not z REMOVE
     //val occupation = drop.map(row => row(6))
-    val annualInc = zScore(drop.map(row => row(7).toDouble)) //g
-    val exLvl = drop.map(row => oneHot(row(8), exerciseCategories)) //h
-    val chronDis = zScore(drop.map(row => row(9).toDouble)) //i
-    val doctVis = zScore(drop.map(row => row(10).toDouble)) //j
-    val hospVis = zScore(drop.map(row => row(11).toDouble)) //k
-    val alcCons = zScore(drop.map(row => row(12).toDouble)) //l
+    val annualInc = zScore(data.map(row => row(8).toDouble)) //g
+    val exLvl = data.map(row => oneHot(row(9), exerciseCategories)) //h
+    val chronDis = zScore(data.map(row => row(10).toDouble)) //i
+    val doctVis = zScore(data.map(row => row(11).toDouble)) //j
+    val hospVis = zScore(data.map(row => row(12).toDouble)) //k
+    val alcCons = zScore(data.map(row => row(13).toDouble)) //l
+    //val insurance dropped
+    val cost = data.map(row => row(15).toDouble)
 
-    val result = age.zip(gender).zip(bmi).zip(children).zip(smoker).zip(annualInc).zip(exLvl)
-      .zip(chronDis).zip(doctVis).zip(hospVis).zip(alcCons)
+    val result = id.zip(age).zip(gender).zip(bmi).zip(children).zip(smoker).zip(annualInc).zip(exLvl)
+      .zip(chronDis).zip(doctVis).zip(hospVis).zip(alcCons).zip(cost)
 
-    result.map({ case ((((((((((a, b), c), d), f), g), h), i), j), k), l) =>
-      Array(a) ++ b ++ Array(c, d)  ++ f ++ Array(g) ++ h ++ Array(i, j, k, l)
-    })
+    result.map { case ((((((((((((id, age), gender), bmi), children), smoker), annualInc), exLvl),
+    chronDis), doctVis), hospVis), alcCons), cost) =>
+      Array(id, age) ++
+        gender ++
+        Array(bmi, children) ++
+        smoker ++
+        Array(annualInc) ++
+        exLvl ++
+        Array(chronDis, doctVis, hospVis, alcCons, cost)
+    }
   }
 
   def mean(data: RDD[Double]): Double = {
@@ -92,7 +102,7 @@ object Main {
     var closest = (-1, 10000.0)
 
     for (i <- b.indices) {
-      val dist = distance(a, b(i))
+      val dist = distance(a.slice(1, a.length-1), b(i).slice(1, b(i).length-1))
       if (closest._2 > dist) {
         closest = (i, dist)
       }
@@ -105,18 +115,13 @@ object Main {
     r.map(closestCentroid(_, centroids))
   }
 
-  def addIds(a: RDD[(Int, Array[Double])]): RDD[(Long, Int, Array[Double])] = {
-    a.zipWithUniqueId().map { case ((q, v), id) => (id, q, v) }
-  }
-
-
-  def intraClusterDist(a: RDD[(Long, Int, Array[Double])]): RDD[(Long, Double)] = {
-    val pairs = a.cartesian(a).filter { case ((id1, q1, v1), (id2, q2, v2)) =>
-      id1 != id2 && q1 == q2
+  def intraClusterDist(a: RDD[(Int, Array[Double])]): RDD[(Double, Double)] = {
+    val pairs = a.cartesian(a).filter { case ((q1, v1), (q2, v2)) =>
+      v1(0) != v2(0) && q1 == q2
     }
 
-    pairs.map { case ((id1, q1, v1), (id2, q2, v2)) =>
-        (id1, (distance(v1, v2), 1))
+    pairs.map { case ((q1, v1), (q2, v2)) =>
+        (v1(0) , (distance(v1.slice(1, v1.length-1), v2.slice(1, v2.length-1)), 1))
       }
       .reduceByKey { case ((sum1, count1), (sum2, count2)) =>
         (sum1 + sum2, count1 + count2)
@@ -124,13 +129,13 @@ object Main {
       .mapValues { case (sum, count) => sum / count }
   }
 
-  def nearestClusterDist(a: RDD[(Long, Int, Array[Double])]): RDD[(Long, Double)] = {
-    val pairs = a.cartesian(a).filter { case ((id1, q1, v1), (id2, q2, v2)) =>
-      id1 != id2 && q1 != q2
+  def nearestClusterDist(a: RDD[(Int, Array[Double])]): RDD[(Double, Double)] = {
+    val pairs = a.cartesian(a).filter { case ((q1, v1), (q2, v2)) =>
+      v1(0) != v2(0) && q1 != q2
     }
 
-    val distBetweenClusters = pairs.map { case ((id1, q1, v1), (id2, q2, v2)) =>
-      ((id1 , q2) ,(distance(v1, v2), 1))
+    val distBetweenClusters = pairs.map { case ((q1, v1), (q2, v2)) =>
+      ((v1(0) , q2) ,(distance(v1.slice(1,v1.length-1), v2.slice(1,v2.length-1)), 1))
     }
       .reduceByKey { case ((sum1, count1), (sum2, count2)) =>
         (sum1 + sum2, count1 + count2)
@@ -159,8 +164,7 @@ val K = List(5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
       val centroids = result.takeSample(false, K(i), seed)
 
       val withCentroids = result.map(closestCentroid(_, centroids)).persist()
-      val indexed = addIds(withCentroids).persist()
-      val silhouetteScores = intraClusterDist(indexed).join(nearestClusterDist(indexed))
+      val silhouetteScores = intraClusterDist(withCentroids).join(nearestClusterDist(withCentroids))
         .map {case (id, (intra, nearest)) =>
           silhouetteScore(intra, nearest)}
       val finalSillScore = silhouetteScores.sum() / silhouetteScores.count()
