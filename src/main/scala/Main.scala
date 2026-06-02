@@ -9,7 +9,8 @@ import scala.collection._
 object Main {
   val k = 5
   val seed = 67
-  def datasetRDD(): RDD[Array[String]] = {
+
+  def normalRDD(): RDD[Array[String]] = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
 
@@ -21,17 +22,17 @@ object Main {
     val header = lines.first()
 
     lines
-      .filter(_!=header)
+      .filter(_ != header)
       .map(line => line.split(","))
   }
 
-  def normalizeMedical() = {
+  def normalizeMedical(): RDD[Array[Double]] = {
     val genderCategories = Array("Male", "Female")
     val smokerCategories = Array("Yes", "No")
     val regionCategories = Array("Northwest", "Southwest", "Northeast", "Southeast", "Central")
     val exerciseCategories = Array("Moderate", "Low", "High")
 
-    val data = datasetRDD()
+    val data = normalRDD()
     //drops id and annual medical cost
     val drop = data.map(row => row.slice(1, 15))
 
@@ -55,13 +56,14 @@ object Main {
       .zip(chronDis).zip(doctVis).zip(hospVis).zip(alcCons)
 
     result.map({ case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) =>
-      Array(a) ++ b ++ Array(c, d) ++ e ++ f ++ Array( g ) ++ h ++ Array( i, j , k, l) })
+      Array(a) ++ b ++ Array(c, d) ++ e ++ f ++ Array(g) ++ h ++ Array(i, j, k, l)
+    })
   }
 
   def mean(data: RDD[Double]): Double = {
-    val result = data.aggregate( (0.0,0) ) (
-      (x,y) => (x._1 + y, x._2 + 1),
-      (x,y) => (x._1 + y._1, x._2 + y._2))
+    val result = data.aggregate((0.0, 0))(
+      (x, y) => (x._1 + y, x._2 + 1),
+      (x, y) => (x._1 + y._1, x._2 + y._2))
     result._1 / result._2
   }
 
@@ -79,24 +81,75 @@ object Main {
 
   def oneHot(value: String, categories: Array[String]): Array[Double] = {
     categories.map(category =>
-    if(value == category) 1.0 else 0.0)
+      if (value == category) 1.0 else 0.0)
   }
 
   def distance(a: Array[Double], b: Array[Double]): Double = {
-    math.sqrt(a.zip(b).map{case (x, y) => math.pow(x - y, 2)}.sum)
+    math.sqrt(a.zip(b).map { case (x, y) => math.pow(x - y, 2) }.sum)
   }
 
   def closestCentroid(a: Array[Double], b: Array[Array[Double]]): (Int, Array[Double]) = {
     //tuple w/ index of centroid and distance
     var closest = (-1, 10000.0)
 
-    for(i <- b.indices) {
+    for (i <- b.indices) {
       val dist = distance(a, b(i))
-      if(closest._2 > dist){
+      if (closest._2 > dist) {
         closest = (i, dist)
       }
     }
     (closest._1, a)
+  }
+
+  def fillCentroid(r: RDD[Array[Double]]) = {
+    val centroids = r.takeSample(false, k, seed)
+    r.map(closestCentroid(_, centroids))
+  }
+
+  def addIds(a: RDD[(Int, Array[Double])]): RDD[(Long, Int, Array[Double])] = {
+    a.zipWithUniqueId().map { case ((q, v), id) => (id, q, v) }
+  }
+
+
+  def intraClusterDist(a: RDD[(Long, Int, Array[Double])]): RDD[(Long, Double)] = {
+    val pairs = a.cartesian(a).filter { case ((id1, q1, v1), (id2, q2, v2)) =>
+      id1 != id2 && q1 == q2
+    }
+
+    pairs.map { case ((id1, q1, v1), (id2, q2, v2)) =>
+        (id1, (distance(v1, v2), 1))
+      }
+      .reduceByKey { case ((sum1, count1), (sum2, count2)) =>
+        (sum1 + sum2, count1 + count2)
+      }
+      .mapValues { case (sum, count) => sum / count }
+  }
+
+
+  def nearestClusterDist(a: RDD[(Long, Int, Array[Double])]): RDD[(Long, Double)] = {
+    val pairs = a.cartesian(a).filter { case ((id1, q1, v1), (id2, q2, v2)) =>
+      id1 != id2 && q1 != q2
+    }
+
+    val distBetweenClusters = pairs.map { case ((id1, q1, v1), (id2, q2, v2)) =>
+      ((id1 , q2) ,(distance(v1, v2), 1))
+    }
+      .reduceByKey { case ((sum1, count1), (sum2, count2)) =>
+        (sum1 + sum2, count1 + count2)
+      }
+      .mapValues { case (sum, count) => sum / count }
+
+    distBetweenClusters
+      .map {
+        case ((id1, otherCluster), avgDist) =>
+          (id1, avgDist)
+      }
+      .reduceByKey(math.min)
+
+  }
+
+  def silhouetteScore(intra: Double, near: Double): Double = {
+    (near - intra) / Math.max(intra, near)
   }
 
 
