@@ -27,10 +27,12 @@ object Main {
   }
 
   def normalizeMedical(): RDD[Array[Double]] = {
+    //COMMENTED OUT GENDER, SMOKER, AND EXERCISE CATEGORIES AND REMOVED FROM ZIPPING
+
     val genderCategories = Array("Male", "Female")
     val smokerCategories = Array("Yes", "No")
     //val regionCategories = Array("Northwest", "Southwest", "Northeast", "Southeast", "Central")
-    val exerciseCategories = Array("Moderate", "Low", "High")
+    //val exerciseCategories = Array("Moderate", "Low", "High")
 
     val data = normalRDD()
     //drops id and annual medical cost
@@ -38,15 +40,15 @@ object Main {
 
     val id = data.map(row => row(0).drop(3).toDouble)
     val age = zScore(data.map(row => row(1).toDouble)) //a
-    val gender = data.map(row => oneHot(row(2), genderCategories)) //b
+    val gender = data.map(row => {if (row(2) == "Male") 1.0 else 0.0}) //b
     val bmi = zScore(data.map(row => row(3).toDouble)) //c
     val children = zScore(data.map(row => row(4).toDouble)) //d
-    val smoker = data.map(row => oneHot(row(5), smokerCategories)) //e
+    val smoker = data.map(row => {if (row(5) == "Yes") 1.0 else 0.0}) //e
     //val region = drop.map(row => oneHot(row(5), regionCategories)) //f
     //not z REMOVE
     //val occupation = drop.map(row => row(6))
     val annualInc = zScore(data.map(row => row(8).toDouble)) //g
-    val exLvl = data.map(row => oneHot(row(9), exerciseCategories)) //h
+    //val exLvl = data.map(row => oneHot(row(9), exerciseCategories)) //h
     val chronDis = zScore(data.map(row => row(10).toDouble)) //i
     val doctVis = zScore(data.map(row => row(11).toDouble)) //j
     val hospVis = zScore(data.map(row => row(12).toDouble)) //k
@@ -54,17 +56,17 @@ object Main {
     //val insurance dropped
     val cost = data.map(row => row(15).toDouble)
 
-    val result = id.zip(age).zip(gender).zip(bmi).zip(children).zip(smoker).zip(annualInc).zip(exLvl)
+    //ZIPPING HERE
+    val result = id.zip(age).zip(gender).zip(bmi).zip(children).zip(smoker).zip(annualInc)
       .zip(chronDis).zip(doctVis).zip(hospVis).zip(alcCons).zip(cost)
 
-    result.map { case ((((((((((((id, age), gender), bmi), children), smoker), annualInc), exLvl),
+    result.map { case (((((((((((id, age), gender), bmi), children), smoker), annualInc),
     chronDis), doctVis), hospVis), alcCons), cost) =>
       Array(id, age) ++
-        gender ++
+        Array(gender) ++
         Array(bmi, children) ++
-        smoker ++
+        Array(smoker) ++
         Array(annualInc) ++
-        exLvl ++
         Array(chronDis, doctVis, hospVis, alcCons, cost)
     }
   }
@@ -187,12 +189,14 @@ val K = (1 to 100).toList
   }
 
   def main(args: Array[String]): Unit = {
-//    val result = normalizeMedical()
-//    val centroids = result.takeSample(false, k, seed)
-//    //result.foreach(row => println(row.mkString(",")))
+    val result = normalizeMedical()
+    val centroids = result.takeSample(false, k, seed)
+//  //result.foreach(row => println(row.mkString(",")))
 //
-//    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
-//    //withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
+    withCentroids.map(x => x._1 + ", " + x._2.mkString(",")).saveAsTextFile("data/ModifiedOneHot")
+    withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+
 //
 //    // Silhouette Score code
 //    val indexed = addIds(withCentroids).persist()
@@ -208,7 +212,7 @@ val K = (1 to 100).toList
 
     //withCentroids.groupByKey().collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
 
-    getK()
+    //getK()
 
   }
 }
