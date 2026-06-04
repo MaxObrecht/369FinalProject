@@ -7,10 +7,14 @@ import org.apache.log4j.Level
 import scala.collection._
 
 object Main {
+  //random seed
   val seed = 67
+  //calculated k from Silhouette Score
   val k = 16
+  //constant maxIteration for K-means
   val maxIter = 25
 
+  //Initial RDD from medical insurance cost dataset csv
   def normalRDD(): RDD[Array[String]] = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
@@ -27,6 +31,7 @@ object Main {
       .map(line => line.split(","))
   }
 
+  //Normalized RDD
   def normalizeMedical(): RDD[Array[Double]] = {
     //COMMENTED OUT GENDER, SMOKER, AND EXERCISE CATEGORIES AND REMOVED FROM ZIPPING
 
@@ -60,6 +65,7 @@ object Main {
     }
   }
 
+  //mean helper method, calculates mean for given RDD of Double
   def mean(data: RDD[Double]): Double = {
     val result = data.aggregate((0.0, 0))(
       (x, y) => (x._1 + y, x._2 + 1),
@@ -67,6 +73,7 @@ object Main {
     result._1 / result._2
   }
 
+  //Standard deviation helper method, calculates std for given RDD of Double
   def std(data: RDD[Double]): Double = {
     val avg = mean(data)
     val (sumSq, count) = data.aggregate((0.0, 0))(
@@ -76,6 +83,7 @@ object Main {
     math.sqrt(sumSq / count)
   }
 
+  //z score helper, calculates z score for given RDD of Double
   def zScore(data: RDD[Double]): RDD[Double] = {
     val persisted = data.persist()
     val avg = mean(persisted)
@@ -83,15 +91,12 @@ object Main {
     persisted.map(n => (n - avg) / compStd)
   }
 
-//  def oneHot(value: String, categories: Array[String]): Array[Double] = {
-//    categories.map(category =>
-//      if (value == category) 1.0 else 0.0)
-//  }
-
+  //Euclidian distance helper, given two points represented as Array of Double, gives a Double distance between the two
   def distance(a: Array[Double], b: Array[Double]): Double = {
     math.sqrt(a.zip(b).map { case (x, y) => math.pow(x - y, 2) }.sum)
   }
 
+  //given a point 'a' and an array of points, finds the closest point to 'a'
   def closestCentroid(a: Array[Double], b: Array[Array[Double]]): (Int, Array[Double]) = {
     //tuple w/ index of centroid and distance
     var closest = (-1, Double.PositiveInfinity)
@@ -105,15 +110,12 @@ object Main {
     (closest._1, a)
   }
 
-//  def fillCentroid(r: RDD[Array[Double]]) = {
-//    val centroids = r.takeSample(false, k, seed)
-//    r.map(closestCentroid(_, centroids))
-//  }
-
+  //given a list of point pairs, returns the list of all the average distances between points within the cluster
   def intraClusterDist(pairs: RDD[((Int, Array[Double]), (Int, Array[Double]))]) = {
     pairs.filter { case ((q1, v1), (q2, v2)) =>
             v1(0) != v2(0) && q1 == q2}
       .map { case ((q1, v1), (q2, v2)) =>
+        //slice to remove id and cost from cluster consideration
         (v1(0) , (distance(v1.slice(1, v1.length-1), v2.slice(1, v2.length-1)), 1))
       }
       .reduceByKey { case ((sum1, count1), (sum2, count2)) =>
@@ -122,10 +124,12 @@ object Main {
       .mapValues { case (sum, count) => sum / count }
   }
 
+  //given a list of point pairs, returns the list of minimum distance between points and another cluster
   def nearestClusterDist(pairs: RDD[((Int, Array[Double]), (Int, Array[Double]))]) = {
     val distBetweenClusters = pairs.filter({case ((q1, v1), (q2, v2)) =>
         v1(0) != v2(0) && q1 != q2})
     .map { case ((q1, v1), (q2, v2)) =>
+      //slice to remove id and cost from cluster consideration
       ((v1(0) , q2) ,(distance(v1.slice(1,v1.length-1), v2.slice(1,v2.length-1)), 1))
     }
       .reduceByKey { case ((sum1, count1), (sum2, count2)) =>
@@ -141,18 +145,19 @@ object Main {
       .reduceByKey(math.min)
   }
 
+  //Silhouette score helper
   def silhouetteScore(intra: Double, near: Double): Double = {
     (near - intra) / Math.max(intra, near)
   }
 
-  def silhouetteScoreHelper(a : RDD[(Int, Array[Double])]) : Double = {
+  //calculates full SilhouetteScore, the average of all the SilhouetteScores
+  def finalSilhouetteScore(a : RDD[(Int, Array[Double])]) : Double = {
     val pairs = a.cartesian(a).filter { case ((q1, v1), (q2, v2)) =>
       v1(0) != v2(0)
     }.persist()
 
     val intra = intraClusterDist(pairs)
     val nearest = nearestClusterDist(pairs)
-
 
     val silhouetteScores = nearest.leftOuterJoin(intra)
       .map { case (id, (nearestDist, maybeIntra)) =>
@@ -172,6 +177,7 @@ object Main {
     sum / count
   }
 
+  //Given an input RDD of Array[Double], calculates Silhouette Scores for a list of k
   def getK(input : RDD[Array[Double]]): Unit = {
 
     //val K = (2 to 100 by 2).toList
@@ -183,7 +189,7 @@ object Main {
     for(kVal <- K) {
       val withCentroids = kMeans(input, kVal)
 
-      val finalSillScore = silhouetteScoreHelper(withCentroids)
+      val finalSillScore = finalSilhouetteScore(withCentroids)
 
       if(finalSillScore > bestSil && finalSillScore <= 1)
         {
@@ -196,6 +202,7 @@ object Main {
     println("BEST " + bestK + "    " + bestSil)
   }
 
+  //Calls getK on several different combination of attributes
   def kCaller(): Unit = {
     //(id, age, bmi, children, annualInc, chronDis, doctVis, hospVis, alcCons, cost)
     val normalize = normalizeMedical().persist()
@@ -251,18 +258,19 @@ object Main {
     demoOnly.count()
     strongestOnly.count()
 
-//    println("BASELINE")
-//    getK(normalize)
-//    println("HEALTHONLY")
-//    getK(healthOnly)
+    println("BASELINE")
+    getK(normalize)
+    println("HEALTHONLY")
+    getK(healthOnly)
     println("UTILIZATION")
     getK(utilizationOnly)
-//    println("DEMOGRAPHICS")
-//    getK(demoOnly)
-//    println("STRONGESTATTRIBUTES")
-//    getK(strongestOnly)
+    println("DEMOGRAPHICS")
+    getK(demoOnly)
+    println("STRONGESTATTRIBUTES")
+    getK(strongestOnly)
   }
 
+  //recompute centroids helper for kMeans, new centroids are the averages of the points belonging to the old centroid
   def recomputeCentroids(withCentroids: RDD[(Int, Array[Double])], oldCentroids: Array[Array[Double]]): Array[Array[Double]] = {
     val newCentroids = withCentroids.map({case (c, row) =>
       val features = row.slice(1, row.length-1)
@@ -286,6 +294,7 @@ object Main {
     }.toArray
   }
 
+  //given an input RDD and a k, produces an RDD of clusters based on the k-means algorithm
   def kMeans(input :  RDD[Array[Double]], k : Int):  RDD[(Int, Array[Double])] = {
     var centroids = input.takeSample(false, k, seed)
     var withCentroids: RDD[(Int, Array[Double])] = null
@@ -301,35 +310,14 @@ object Main {
 
       centroids = recomputeCentroids(withCentroids, centroids)
     }
-
-    //
-//    val clusterSizes = withCentroids
-//      .map { case (cluster, row) => (cluster, 1) }
-//      .reduceByKey(_ + _)
-//      .collect()
-//      .sortBy(_._1)
-//
-//    clusterSizes.foreach { case (cluster, size) =>
-//      println("cluster=" + cluster + " size=" + size)
-//    }
-    //
-
     withCentroids
   }
 
   def main(args: Array[String]): Unit = {
-//    val result = normalizeMedical()
-//    val centroids = result.takeSample(false, k, seed)
-//  //result.foreach(row => println(row.mkString(",")))
-//
-//    val withCentroids = result.map(closestCentroid(_, centroids)).persist()
-//    withCentroids.map(x => x._1 + ", " + x._2.mkString(",")).saveAsTextFile("data/zScoredGenderSmoker")
-//    withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
+    //Silhouette Score calculation
+    //kCaller();
 
-
-    //withCentroids.groupByKey().collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
-
-
+    //Attributes clustered on:
     //doctor visits, hospital visits, chronic disease
     val utilizationOnly = normalizeMedical().map (row =>
       Array (
@@ -341,6 +329,7 @@ object Main {
       )
     )
 
+    //saves clusters to clusters directory
     val clusters = kMeans(utilizationOnly, k)
     clusters.map({case (cluster, row) =>
       cluster + "," + row.mkString(",")
