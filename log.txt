@@ -2,3 +2,7 @@ Max Obrecht: normalRDD(), normalizeMedical(), related helper methods like mean, 
 Max Obrecht: finalSilhouetteScore(), silhouetteScore(), intraClusterDistance(), nearestClusterDistance(), 5/28/26, 1 hr 30 min.
 Max Obrecht: finalSilhouetteScore() (debugging and edits), intraClusterDistance() (debugging and edits), nearestClusterDistance() (debugging and edits),
 getK() {kCaller}, k-Means() {recomputeCentroids}, 6/3/26 3 hr.
+
+Owen Sam: distance(), Closest Centroid(), normalizeMedical() debugging, 5/27/26, 1 hr.
+Owen Sam: debugging on z-score and standard deviation, turning output into suitable data files to pass to python, 6/2/26, 1 hr.
+Owen Sam: python pca graphing and data analysis, 6/3/26, 5 hr. (lowkey spent way longer on this than I should have)
