@@ -8,6 +8,7 @@ import scala.collection._
 
 object Main {
   val seed = 67
+  val k = 16
   val maxIter = 25
 
   def normalRDD(): RDD[Array[String]] = {
@@ -250,16 +251,16 @@ object Main {
     demoOnly.count()
     strongestOnly.count()
 
-    println("BASELINE")
-    getK(normalize)
-    println("HEALTHONLY")
-    getK(healthOnly)
+//    println("BASELINE")
+//    getK(normalize)
+//    println("HEALTHONLY")
+//    getK(healthOnly)
     println("UTILIZATION")
     getK(utilizationOnly)
-    println("DEMOGRAPHICS")
-    getK(demoOnly)
-    println("STRONGESTATTRIBUTES")
-    getK(strongestOnly)
+//    println("DEMOGRAPHICS")
+//    getK(demoOnly)
+//    println("STRONGESTATTRIBUTES")
+//    getK(strongestOnly)
   }
 
   def recomputeCentroids(withCentroids: RDD[(Int, Array[Double])], oldCentroids: Array[Array[Double]]): Array[Array[Double]] = {
@@ -287,7 +288,7 @@ object Main {
 
   def kMeans(input :  RDD[Array[Double]], k : Int):  RDD[(Int, Array[Double])] = {
     var centroids = input.takeSample(false, k, seed)
-    var withCentroids :  RDD[(Int, Array[Double])] = null
+    var withCentroids: RDD[(Int, Array[Double])] = null
 
     for (_ <- 1 to maxIter) {
       if (withCentroids != null) {
@@ -300,6 +301,19 @@ object Main {
 
       centroids = recomputeCentroids(withCentroids, centroids)
     }
+
+    //
+//    val clusterSizes = withCentroids
+//      .map { case (cluster, row) => (cluster, 1) }
+//      .reduceByKey(_ + _)
+//      .collect()
+//      .sortBy(_._1)
+//
+//    clusterSizes.foreach { case (cluster, size) =>
+//      println("cluster=" + cluster + " size=" + size)
+//    }
+    //
+
     withCentroids
   }
 
@@ -312,23 +326,25 @@ object Main {
 //    withCentroids.map(x => x._1 + ", " + x._2.mkString(",")).saveAsTextFile("data/zScoredGenderSmoker")
 //    withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
 
-//
-//    // Silhouette Score code
-//    val indexed = addIds(withCentroids).persist()
-//
-//    val silhouetteScores = intraClusterDist(indexed).join(nearestClusterDist(indexed))
-//      .map {case (id, (intra, nearest)) =>
-//      silhouetteScore(intra, nearest)}
-//
-//    val finalSillScore = silhouetteScores.sum() / silhouetteScores.count()
-//    //
-//
-//    println(finalSillScore)
 
     //withCentroids.groupByKey().collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
 
-    kCaller()
 
+    //doctor visits, hospital visits, chronic disease
+    val utilizationOnly = normalizeMedical().map (row =>
+      Array (
+        row(0), //id
+        row(5), //chron
+        row(6), //doctor
+        row(7), //hospt
+        row(9)  //cost
+      )
+    )
+
+    val clusters = kMeans(utilizationOnly, k)
+    clusters.map({case (cluster, row) =>
+      cluster + "," + row.mkString(",")
+    }).saveAsTextFile("src/clusters")
   }
 }
 
