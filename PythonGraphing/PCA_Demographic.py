@@ -13,28 +13,22 @@ import matplotlib.colors as mcolors
 
 
 # SETUP AND GET PCA DATA
-df = pd.read_csv("Trial6.txt", header=None)
+df = pd.read_csv("Demographic.txt", header=None)
 
 df.columns = pd.Index([
     "cluster_id",
     "point_id",
     "age",
-    "gender",
-    "bmi",
     "children",
-    "smoker",
     "annual_income",
-    "chronic_diseases",
-    "doctor_visits",
-    "hospitalizations",
-    "alcohol_consumption",
     "cost"
 ])
 
 
+
 X = df.drop(columns=["cluster_id", "point_id", "cost"])
 
-pca = PCA() #n_components=2
+pca = PCA(n_components=3) #n_components=2
 pca_result = pca.fit_transform(X)
 
 explained = pca.explained_variance_ratio_
@@ -46,21 +40,19 @@ print(pd.DataFrame({
 
 loadings = pd.DataFrame(
     pca.components_.T,
-    columns=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10",],
+    columns=["PC1", "PC2", "PC3"],
     index=X.columns
 )
 
 print(loadings.sort_values("PC1", key=abs, ascending=False))
 
 
-
-
-
 #K MEANS CLUSTERING DATA
 df["pca_1"] = pca_result[:, 0]
 df["pca_2"] = pca_result[:, 1]
+df["pca_3"] = pca_result[:, 2]
 
-centroids = df.drop(columns=["point_id", "cost", "pca_1", "pca_2"]).groupby("cluster_id").mean()
+centroids = df.drop(columns=["point_id", "cost", "pca_1", "pca_2", "pca_3"]).groupby("cluster_id").mean()
 centroids_pca = pca.transform(centroids.values)
 
 centroids_df = pd.DataFrame({
@@ -86,17 +78,12 @@ plt.scatter(centroids_df["pca_1"], centroids_df["pca_2"],
             norm=norm, s=200, marker="X", edgecolors="black", linewidths=0.8,
             zorder=5)
 
-# Build legend: one entry per cluster (color swatch + centroid marker)
+# Build legend: one entry per cluster
 legend_handles = []
 for i, cid in enumerate(cluster_ids):
     color = cmap(i)  # sample by index, not through norm
     patch = mpatches.Patch(color=color, label=f"Cluster {cid}")
     legend_handles.append(patch)
-
-# Append a generic centroid marker entry
-centroid_handle = plt.scatter([], [], c="gray", s=120, marker="X",
-                               edgecolors="black", linewidths=0.8, label="Centroids")
-legend_handles.append(centroid_handle)
 
 plt.legend(
     handles=legend_handles,
@@ -113,36 +100,6 @@ plt.title("PCA1 vs PCA2 with centroids")
 plt.grid(True)
 plt.show()
 
-cluster_cost = df.groupby("cluster_id")["cost"].mean()
-
-
-
-
-
-
-
-
-# PCA1 plot by cost
-plt.figure(figsize=(10, 7))
-
-scatter = plt.scatter(
-    df["pca_1"],
-    df["cost"],
-    alpha=0.65
-)
-
-m, b = np.polyfit(df["pca_1"], df["cost"], 1)
-plt.plot(np.sort(df["pca_1"]), m * np.sort(df["pca_1"]) + b, color="black", linewidth=1.5)
-
-plt.xlabel(f"PCA 1")
-plt.ylabel(f"cost")
-plt.title("Cost vs PCA1")
-plt.grid(True)
-plt.show()
-
-
-
-
 #Average cost by cluster
 cluster_cost = df.groupby("cluster_id")["cost"].mean()
 
@@ -152,3 +109,8 @@ plt.ylabel("Average Cost")
 plt.xlabel("Cluster")
 plt.title("Average Insurance Cost by Cluster")
 plt.show()
+
+
+
+centroids = df.groupby("cluster_id").mean(numeric_only=True)
+print(centroids)
