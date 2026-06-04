@@ -1,0 +1,4 @@
+Max Obrecht: normalRDD(), normalizeMedical(), related helper methods like mean, std, z-score, 5/26/26, 1 hr.
+Max Obrecht: finalSilhouetteScore(), silhouetteScore(), intraClusterDistance(), nearestClusterDistance(), 5/28/26, 1 hr 30 min.
+Max Obrecht: finalSilhouetteScore() (debugging and edits), intraClusterDistance() (debugging and edits), nearestClusterDistance() (debugging and edits),
+getK() {kCaller}, k-Means() {recomputeCentroids}, 6/3/26 3 hr.
