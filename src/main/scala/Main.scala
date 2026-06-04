@@ -10,7 +10,7 @@ object Main {
   //random seed
   val seed = 67
   //calculated k from Silhouette Score
-  val k = 16
+  val k = 8
   //constant maxIteration for K-means
   val maxIter = 25
 
@@ -315,7 +315,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     //Silhouette Score calculation
-    //kCaller();
+//    kCaller();
 
     //Attributes clustered on:
     //doctor visits, hospital visits, chronic disease
