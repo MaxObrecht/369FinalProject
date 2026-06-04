@@ -34,16 +34,17 @@ object Main {
     //val regionCategories = Array("Northwest", "Southwest", "Northeast", "Southeast", "Central")
     //val exerciseCategories = Array("Moderate", "Low", "High")
 
-    val data = normalRDD()
+    val normalrdd = normalRDD()
     //drops id and annual medical cost
     //val drop = data.map(row => row.slice(1, 15))
 
+    val data = normalrdd.persist()
     val id = data.map(row => row(0).drop(3).toDouble)
     val age = zScore(data.map(row => row(1).toDouble)) //a
-    val gender = data.map(row => {if (row(2) == "Male") 1.0 else 0.0}) //b
+    val gender = zScore(data.map(row => {if (row(2) == "Male") 1.0 else 0.0})) //b
     val bmi = zScore(data.map(row => row(3).toDouble)) //c
     val children = zScore(data.map(row => row(4).toDouble)) //d
-    val smoker = data.map(row => {if (row(5) == "Yes") 1.0 else 0.0}) //e
+    val smoker = zScore(data.map(row => {if (row(5) == "Yes") 1.0 else 0.0})) //e
     //val region = drop.map(row => oneHot(row(5), regionCategories)) //f
     //not z REMOVE
     //val occupation = drop.map(row => row(6))
@@ -80,14 +81,18 @@ object Main {
 
   def std(data: RDD[Double]): Double = {
     val avg = mean(data)
-    val sumSquareDiffs = data.fold(0.0)((total, n) => total + math.pow(n - avg, 2))
-    math.sqrt(sumSquareDiffs / data.count)
+    val (sumSq, count) = data.aggregate((0.0, 0))(
+      (acc, n) => (acc._1 + math.pow(n - avg, 2), acc._2 + 1),
+      (a, b)   => (a._1 + b._1, a._2 + b._2)
+    )
+    math.sqrt(sumSq / count)
   }
 
   def zScore(data: RDD[Double]): RDD[Double] = {
-    val avg = mean(data)
-    val compStd = std(data)
-    data.map(n => (n - avg) / compStd)
+    val persisted = data.persist()
+    val avg = mean(persisted)
+    val compStd = std(persisted)
+    persisted.map(n => (n - avg) / compStd)
   }
 
   def oneHot(value: String, categories: Array[String]): Array[Double] = {
@@ -194,7 +199,7 @@ val K = (1 to 100).toList
 //  //result.foreach(row => println(row.mkString(",")))
 //
     val withCentroids = result.map(closestCentroid(_, centroids)).persist()
-    withCentroids.map(x => x._1 + ", " + x._2.mkString(",")).saveAsTextFile("data/ModifiedOneHot")
+    withCentroids.map(x => x._1 + ", " + x._2.mkString(",")).saveAsTextFile("data/zScoredGenderSmoker")
     withCentroids.collect().foreach(x => println(x._1 + ",       " + x._2.mkString(",")))
 
 //
